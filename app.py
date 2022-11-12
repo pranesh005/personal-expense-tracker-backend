@@ -2,6 +2,7 @@ from flask import Flask, request
 import ibm_db
 import json
 import uuid
+import datetime
 
 app = Flask(__name__)
 try:
@@ -130,15 +131,18 @@ def get_expenses():
     if request.args:
         type = request.args['type']
     try:
-        sql = f'SELECT e.expense_id, e.amount, e.date, c.category_name, e.expense_type, e.description FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id  where u.user_id = {user_id}'
+        sql = "SELECT e.expense_id, e.amount, e.date, c.category_name, e.expense_type, e.description FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id  where u.user_id = %s" % user_id
         if type:
-            sql +=f'AND e.expense_type = {type}'
+            sql +=" AND e.expense_type = '%s'" % type
+        sql+=" ORDER BY e.date DESC"
 
         stmt = ibm_db.exec_immediate(conn, sql )
         expense = ibm_db.fetch_assoc(stmt)
         expenses = []
         while expense !=False:
             exp =  {k.lower(): v for k, v in expense.items()}
+            date = exp['date']
+            exp['date'] = date.__str__()
             expenses.append(exp)
             expense = ibm_db.fetch_assoc(stmt)
         response = app.response_class(
