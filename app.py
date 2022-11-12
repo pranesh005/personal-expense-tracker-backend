@@ -60,6 +60,17 @@ def register():
     limit = request.form['monthly_limit']
     try:
         id = "".join([n for n in str(uuid.uuid4())[:8] if n.isdigit()])
+        stmt = ibm_db.exec_immediate(conn, "select * from users where email = '%s'" % (email))
+        print("num rows is ",ibm_db.num_rows(stmt))
+        if ibm_db.fetch_assoc(stmt):
+            response = app.response_class(
+            response=json.dumps({"message":'Email already exists'}),
+            status=409,
+            mimetype='application/json'
+            )
+            print("already exists")
+            return response
+        print("new email")
         stmt = ibm_db.exec_immediate(conn, "INSERT into users values('%s','%s','%s','%s','%s')" % (int(id),name,email,password,limit))
         print("Number of affected rows: ", ibm_db.num_rows(stmt))
         stmt = ibm_db.exec_immediate(conn, "SELECT * from users where email = '%s' and password = '%s'" % (email,password))
