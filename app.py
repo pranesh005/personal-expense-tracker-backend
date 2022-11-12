@@ -1,5 +1,5 @@
 from flask import Flask, request
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 import ibm_db
 import json
 import uuid
@@ -14,9 +14,12 @@ try:
 except Exception as e:
     print(ibm_db.conn_errormsg())
 @app.route('/')
+@cross_origin()
 def hello():
     return 'hello'
+
 @app.route('/login', methods = ['POST'])
+@cross_origin()
 def login():
     email = request.form['email']
     password = request.form['password']
@@ -49,6 +52,7 @@ def login():
 
 
 @app.route('/register', methods= ['POST'])
+@cross_origin()
 def register():
     name = request.form['name']
     email = request.form['email']
@@ -76,6 +80,7 @@ def register():
         return response
     
 @app.route('/add', methods = ['POST'])
+@cross_origin()
 def add_expense():
     date = request.form['date']
     amount = request.form['amount']
@@ -106,6 +111,7 @@ def add_expense():
         return response
 
 @app.route('/categories', methods = ['GET'])
+@cross_origin()
 def get_categories():
     try:
         stmt = ibm_db.exec_immediate(conn, 'SELECT * from category')
@@ -129,6 +135,7 @@ def get_categories():
         return response
 
 @app.route('/expenses', methods = ['GET'])
+@cross_origin()
 def get_expenses():
     user_id = request.headers['user_id']
     type = None
