@@ -1,10 +1,12 @@
 from flask import Flask, request
+from flask_cors import CORS
 import ibm_db
 import json
 import uuid
 import datetime
 
 app = Flask(__name__)
+cors = CORS(app)
 try:
     print("Connecting")
     conn=ibm_db.connect('DATABASE=bludb;HOSTNAME=6667d8e9-9d4d-4ccb-ba32-21da3bb5aafc.c1ogj3sd0tgtu0lqde00.databases.appdomain.cloud;PORT=30376;SECURITY=SSL;SSLServerCertificate=DigiCertGlobalRootCA.crt;UID=ncv90043;PWD=l6SXXm78Bc5lPuP0','','')
@@ -160,6 +162,12 @@ def get_expenses():
             mimetype='application/json'
         )
         return response
+
+# @app.route('/expenditure-breakdown')
+# def expenditure_breakdown():
+#     user_id = request.headers['user_id']
+#     try:
+
 
 if __name__ == '__main__':
     app.run(debug = True)
