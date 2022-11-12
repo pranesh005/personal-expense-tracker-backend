@@ -4,6 +4,8 @@ import ibm_db
 import json
 import uuid
 import datetime
+from datetime import datetime, timedelta, date
+import calendar
 
 app = Flask(__name__)
 cors = CORS(app)
@@ -181,11 +183,86 @@ def get_expenses():
         )
         return response
 
-# @app.route('/expenditure-breakdown')
-# def expenditure_breakdown():
-#     user_id = request.headers['user_id']
-#     try:
+@app.route('/expenditure-breakdown')
+def expenditure_breakdown():
+    user_id = request.headers['user_id']
+    try:
+        week_start_date, week_end_date = get_week_start_and_end()
+        sql_week_spent = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id  where u.user_id = %s and e.expense_type = 'debit' and e.date between '%s' And '%s'" % (user_id,week_start_date,week_end_date)
+        stmt = ibm_db.exec_immediate(conn, sql_week_spent)
+        week_spent = ibm_db.fetch_assoc(stmt)
 
+        today_start, today_end = get_today_datetime_start_and_end()
+        sql_today_spent = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id  where u.user_id = %s and e.expense_type = 'debit' and e.date between '%s' And '%s'" % (user_id,today_start,today_end)
+        stmt = ibm_db.exec_immediate(conn, sql_today_spent)
+        today_spent = ibm_db.fetch_assoc(stmt)
+
+        month_start, month_end = get_month_start_and_end()
+        sql_month_spent = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id  where u.user_id = %s and e.expense_type = 'debit' and e.date between '%s' And '%s'" % (user_id,month_start,month_end)
+        stmt = ibm_db.exec_immediate(conn, sql_month_spent)
+        month_spent = ibm_db.fetch_assoc(stmt)
+
+        year_start, year_end = get_year_start_and_end()
+        sql_year_spent = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id  where u.user_id = %s and e.expense_type = 'debit' and e.date between '%s' And '%s'" % (user_id,year_start,year_end)
+        stmt = ibm_db.exec_immediate(conn, sql_year_spent)
+        year_spent = ibm_db.fetch_assoc(stmt)
+
+        sql_total_spent = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id  where u.user_id = %s and e.expense_type = 'debit'" % (user_id)
+        stmt = ibm_db.exec_immediate(conn, sql_total_spent)
+        total_spent = ibm_db.fetch_assoc(stmt)
+
+        sql_most_spent_category = "SELECT category_name from category where category_id = (SELECT MAX(e.category_id) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id  where u.user_id = %s and e.expense_type = 'debit')" % user_id
+        stmt = ibm_db.exec_immediate(conn, sql_most_spent_category)
+        most_spent_category= ibm_db.fetch_assoc(stmt)
+        print(most_spent_category)
+        result={'weekly_spent':week_spent['1'],
+                'today':today_spent['1'],
+                'month':month_spent['1'],
+                'year':year_spent['1'],
+                'total':total_spent['1'],
+
+                'most_spent_category':most_spent_category['CATEGORY_NAME']}
+        response = app.response_class(
+            response=json.dumps(result),
+            status=200,
+            mimetype='application/json'
+        )
+        return response
+    except Exception as e:
+        response = app.response_class(
+            response=json.dumps(str(e)),
+            status=400,
+            mimetype='application/json'
+        )
+        return response
+
+def get_week_start_and_end():
+    day = str(date.today().strftime('%d/%b/%Y'))
+    dt = datetime.strptime(day, '%d/%b/%Y')
+    start = dt - timedelta(days=dt.weekday())
+    end = start + timedelta(days=6)
+    return start, end
+
+def get_today_datetime_start_and_end():
+    today = str(date.today())
+    today_start = today+' 00:00:00'
+    today_end = today+' 24:00:00'
+    return today_start,today_end
+
+def get_month_start_and_end():
+    currentDay = datetime.now().day
+    currentMonth = datetime.now().month
+    currentYear = datetime.now().year
+    month_start= datetime(currentYear,currentMonth,1)
+    end_date = calendar.monthrange(currentYear, currentMonth)[1]
+    month_end = datetime(currentYear,currentMonth,end_date)
+    return month_start,month_end
+
+def get_year_start_and_end():
+    currentYear = datetime.now().year
+    year_start = datetime(currentYear,1,1)
+    year_end = datetime(currentYear,12,31)
+    return year_start, year_end
 
 if __name__ == '__main__':
     app.run(debug = True)
