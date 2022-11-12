@@ -116,8 +116,14 @@ def get_categories():
         )
         return response
     except Exception as e:
+        response = app.response_class(
+            response=json.dumps(categories),
+            status=400,
+            mimetype='application/json'
+        )
+        return response
         return str(e)
     
 
 if __name__ == '__main__':
-    app.run(debug = True)
+    app.run(debug = False, host='0.0.0.0')
