@@ -11,7 +11,9 @@ try:
     print("Successfully connected")
 except Exception as e:
     print(ibm_db.conn_errormsg())
-
+@app.route('/')
+def hello():
+    return 'hello'
 @app.route('/login', methods = ['POST'])
 def login():
     email = request.form['email']
