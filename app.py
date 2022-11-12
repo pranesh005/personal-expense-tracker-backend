@@ -215,13 +215,12 @@ def expenditure_breakdown():
         stmt = ibm_db.exec_immediate(conn, sql_most_spent_category)
         most_spent_category= ibm_db.fetch_assoc(stmt)
         print(most_spent_category)
-        result={'weekly_spent':week_spent['1'],
+        result={'week':week_spent['1'],
                 'today':today_spent['1'],
                 'month':month_spent['1'],
                 'year':year_spent['1'],
                 'total':total_spent['1'],
-
-                'most_spent_category':most_spent_category['CATEGORY_NAME']}
+                'most_spent_on':most_spent_category['CATEGORY_NAME']}
         response = app.response_class(
             response=json.dumps(result),
             status=200,
