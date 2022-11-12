@@ -236,6 +236,50 @@ def expenditure_breakdown():
         )
         return response
 
+@app.route('/update-monthly-limit/<monthly_limit>', methods = ['PUT'])
+def update_limit(monthly_limit):
+    user_id = request.headers['user_id']
+    try:
+        sql_update = "UPDATE users SET MONTHLY_LIMIT = '%s' where user_id = %s" % (monthly_limit,user_id)
+        stmt = ibm_db.exec_immediate(conn, sql_update)
+        response = app.response_class(
+            response=json.dumps({'message':'Updated Successfully'}),
+            status=200,
+            mimetype='application/json'
+        )
+        return response
+    except Exception as e:
+        response = app.response_class(
+            response=json.dumps(str(e)),
+            status=400,
+            mimetype='application/json'
+        )
+        return response
+
+@app.route('/delete-expense/<expense_id>', methods = ['DELETE'])
+def delete_expense(expense_id):
+    user_id = request.headers['user_id']
+    try:
+        sql_delete_expense = "DELETE FROM expense where expense_id = %s" % expense_id
+        ibm_db.exec_immediate(conn, sql_delete_expense)
+
+        sql_delete_user_expense = "DELETE FROM user_expense where expense_id = %s"% expense_id
+        ibm_db.exec_immediate(conn, sql_delete_user_expense)
+        response = app.response_class(
+            response=json.dumps({'message':'Deleted Successfully'}),
+            status=200,
+            mimetype='application/json'
+        )
+        return response
+    except Exception as e:
+        response = app.response_class(
+            response=json.dumps(str(e)),
+            status=400,
+            mimetype='application/json'
+        )
+        return response
+
+
 def get_week_start_and_end():
     day = str(date.today().strftime('%d/%b/%Y'))
     dt = datetime.strptime(day, '%d/%b/%Y')
