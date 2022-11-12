@@ -48,7 +48,7 @@ def register():
     name = request.form['name']
     email = request.form['email']
     password = request.form['password']
-    limit = request.form['limit']
+    limit = request.form['monthly_limit']
     try:
         id = "".join([n for n in str(uuid.uuid4())[:8] if n.isdigit()])
         stmt = ibm_db.exec_immediate(conn, f'INSERT into users values({int(id)},{name},{email},{password},{limit})')
@@ -117,13 +117,43 @@ def get_categories():
         return response
     except Exception as e:
         response = app.response_class(
-            response=json.dumps(categories),
+            response=json.dumps(str(e)),
             status=400,
             mimetype='application/json'
         )
         return response
-        return str(e)
-    
+
+@app.route('/expenses', methods = ['GET'])
+def get_expenses():
+    user_id = request.headers['user_id']
+    type = None
+    if request.args:
+        type = request.args['type']
+    try:
+        sql = f'SELECT e.expense_id, e.amount, e.date, c.category_name, e.expense_type, e.description FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id  where u.user_id = {user_id}'
+        if type:
+            sql +=f'AND e.expense_type = {type}'
+
+        stmt = ibm_db.exec_immediate(conn, sql )
+        expense = ibm_db.fetch_assoc(stmt)
+        expenses = []
+        while expense !=False:
+            exp =  {k.lower(): v for k, v in expense.items()}
+            expenses.append(exp)
+            expense = ibm_db.fetch_assoc(stmt)
+        response = app.response_class(
+            response=json.dumps(expenses),
+            status=200,
+            mimetype='application/json'
+        )
+        return response
+    except Exception as e:
+        response = app.response_class(
+            response=json.dumps(str(e)),
+            status=400,
+            mimetype='application/json'
+        )
+        return response
 
 if __name__ == '__main__':
-    app.run(debug = False, host='0.0.0.0')
+    app.run(debug = True)
