@@ -60,9 +60,9 @@ def register():
     limit = request.form['monthly_limit']
     try:
         id = "".join([n for n in str(uuid.uuid4())[:8] if n.isdigit()])
-        stmt = ibm_db.exec_immediate(conn, f'INSERT into users values({int(id)},{name},{email},{password},{limit})')
+        stmt = ibm_db.exec_immediate(conn, "INSERT into users values('%s','%s','%s','%s','%s')" % (int(id),name,email,password,limit))
         print("Number of affected rows: ", ibm_db.num_rows(stmt))
-        stmt = ibm_db.exec_immediate(conn, f'SELECT * from users where email = {email} and password = {password}')
+        stmt = ibm_db.exec_immediate(conn, "SELECT * from users where email = '%s' and password = '%s'" % (email,password))
         result = ibm_db.fetch_assoc(stmt)
         response = app.response_class(
             response=json.dumps({"user_id":result["USER_ID"]}),
