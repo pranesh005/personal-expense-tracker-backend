@@ -24,7 +24,7 @@ def login():
     email = request.form['email']
     password = request.form['password']
     try:
-        stmt = ibm_db.exec_immediate(conn, f'select * from users where email = {email} and password = {password}')
+        stmt = ibm_db.exec_immediate(conn, "select * from users where email = '%s' and password = '%s'" % (email,password))
         result = ibm_db.fetch_assoc(stmt)
         if result:
             response = app.response_class(
@@ -92,9 +92,9 @@ def add_expense():
     print("user_id got is ",user_id)
     try:
         id = "".join([n for n in str(uuid.uuid4())[:8] if n.isdigit()])
-        stmt = ibm_db.exec_immediate(conn, f'SELECT expense_id from FINAL TABLE (INSERT INTO expense values ({id},{date},{amount},{category_id},{description},{expense_type}))')
+        stmt = ibm_db.exec_immediate(conn, "SELECT expense_id from FINAL TABLE (INSERT INTO expense values ('%s','%s','%s','%s','%s','%s'))" % (int(id),date,amount,category_id,description,expense_type))
         expense_id = ibm_db.fetch_assoc(stmt)['EXPENSE_ID']
-        ibm_db.exec_immediate(conn, f'INSERT INTO user_expense VALUES ({user_id},{expense_id})')
+        ibm_db.exec_immediate(conn, "INSERT INTO user_expense VALUES ('%s','%s')" % (user_id,expense_id))
         response = app.response_class(
             response=json.dumps({'message':'expense added successfully'}),
             status=200,
