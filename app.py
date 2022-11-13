@@ -312,7 +312,7 @@ def update_expense(expense_id):
         category_id = request.form['category_id']
         description = request.form['description']
         expense_type = request.form['expense_type']
-        sql_update_expense = "UPDATE EXPENSE SET date = '%s', amount = %s, category_id = %s, description = '%s', expense_type = '%s'" % (date,amount,category_id,description,expense_type)
+        sql_update_expense = "UPDATE EXPENSE SET date = '%s', amount = %s, category_id = %s, description = '%s', expense_type = '%s' where expense_id = %s" % (date,amount,category_id,description,expense_type,expense_id)
         stmt = ibm_db.exec_immediate(conn, sql_update_expense)
         if ibm_db.num_rows(stmt) >0:
             response = app.response_class(
