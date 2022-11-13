@@ -189,6 +189,7 @@ def expenditure_breakdown():
     try:
         week_start_date, week_end_date = get_week_start_and_end()
         sql_week_spent = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id  where u.user_id = %s and e.expense_type = 'debit' and e.date between '%s' And '%s'" % (user_id,week_start_date,week_end_date)
+        print(sql_week_spent)
         stmt = ibm_db.exec_immediate(conn, sql_week_spent)
         week_spent = ibm_db.fetch_assoc(stmt)
         if not week_spent:
@@ -340,6 +341,8 @@ def get_week_start_and_end():
     dt = datetime.strptime(day, '%d/%b/%Y')
     start = dt - timedelta(days=dt.weekday())
     end = start + timedelta(days=6)
+    end = str(end).split(' ')[0]
+    end+=' 24:00:00'
     return start, end
 
 def get_today_datetime_start_and_end():
