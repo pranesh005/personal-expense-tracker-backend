@@ -191,36 +191,60 @@ def expenditure_breakdown():
         sql_week_spent = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id  where u.user_id = %s and e.expense_type = 'debit' and e.date between '%s' And '%s'" % (user_id,week_start_date,week_end_date)
         stmt = ibm_db.exec_immediate(conn, sql_week_spent)
         week_spent = ibm_db.fetch_assoc(stmt)
+        if not week_spent:
+            week_spent = 0
+        else:
+            week_spent = week_spent['1']
 
         today_start, today_end = get_today_datetime_start_and_end()
         sql_today_spent = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id  where u.user_id = %s and e.expense_type = 'debit' and e.date between '%s' And '%s'" % (user_id,today_start,today_end)
         stmt = ibm_db.exec_immediate(conn, sql_today_spent)
         today_spent = ibm_db.fetch_assoc(stmt)
+        if not today_spent:
+            today_spent = 0
+        else:
+            today_spent = today_spent['1']
 
         month_start, month_end = get_month_start_and_end()
         sql_month_spent = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id  where u.user_id = %s and e.expense_type = 'debit' and e.date between '%s' And '%s'" % (user_id,month_start,month_end)
         stmt = ibm_db.exec_immediate(conn, sql_month_spent)
         month_spent = ibm_db.fetch_assoc(stmt)
+        if not month_spent:
+            month_spent = 0
+        else:
+            month_spent = month_spent['1']
 
         year_start, year_end = get_year_start_and_end()
         sql_year_spent = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id  where u.user_id = %s and e.expense_type = 'debit' and e.date between '%s' And '%s'" % (user_id,year_start,year_end)
         stmt = ibm_db.exec_immediate(conn, sql_year_spent)
         year_spent = ibm_db.fetch_assoc(stmt)
+        if not year_spent:
+            year_spent = 0
+        else:
+            year_spent = year_spent['1']
 
         sql_total_spent = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id  where u.user_id = %s and e.expense_type = 'debit'" % (user_id)
         stmt = ibm_db.exec_immediate(conn, sql_total_spent)
         total_spent = ibm_db.fetch_assoc(stmt)
+        if not total_spent:
+            total_spent = 0
+        else:
+            total_spent = total_spent['1']
 
         sql_most_spent_category = "SELECT category_name from category where category_id = (SELECT MAX(e.category_id) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id  where u.user_id = %s and e.expense_type = 'debit')" % user_id
         stmt = ibm_db.exec_immediate(conn, sql_most_spent_category)
         most_spent_category= ibm_db.fetch_assoc(stmt)
+        if not most_spent_category:
+            most_spent_category = 'Nil'
+        else:
+            most_spent_category = most_spent_category['CATEGORY_NAME']
         print(most_spent_category)
-        result={'week':week_spent['1'],
-                'today':today_spent['1'],
-                'month':month_spent['1'],
-                'year':year_spent['1'],
-                'total':total_spent['1'],
-                'most_spent_on':most_spent_category['CATEGORY_NAME']}
+        result={'week':week_spent,
+                'today':today_spent,
+                'month':month_spent,
+                'year':year_spent,
+                'total':total_spent,
+                'most_spent_on':most_spent_category}
         response = app.response_class(
             response=json.dumps(result),
             status=200,
@@ -278,6 +302,38 @@ def delete_expense(expense_id):
         )
         return response
 
+@app.route('/update-expense/<expense_id>', methods = ['PUT'])
+def update_expense(expense_id):
+    user_id = request.headers['user_id']
+    try:
+        date = request.form['date']
+        amount = request.form['amount']
+        category_id = request.form['category_id']
+        description = request.form['description']
+        expense_type = request.form['expense_type']
+        sql_update_expense = "UPDATE EXPENSE SET date = '%s', amount = %s, category_id = %s, description = '%s', expense_type = '%s'" % (date,amount,category_id,description,expense_type)
+        stmt = ibm_db.exec_immediate(conn, sql_update_expense)
+        if ibm_db.num_rows(stmt) >0:
+            response = app.response_class(
+            response=json.dumps({'message':'Updated Successfully'}),
+            status=200,
+            mimetype='application/json'
+            )
+            return response
+        else:
+            response = app.response_class(
+            response=json.dumps({'message':'Something went wrong. Expense not updated'}),
+            status=400,
+            mimetype='application/json'
+        )
+            return response
+    except Exception as e:
+        response = app.response_class(
+            response=json.dumps(str(e)),
+            status=400,
+            mimetype='application/json'
+        )
+        return response
 
 def get_week_start_and_end():
     day = str(date.today().strftime('%d/%b/%Y'))
