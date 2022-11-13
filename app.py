@@ -117,7 +117,7 @@ def add_expense():
     except Exception as e:
         print(e)
         response = app.response_class(
-            response=json.dumps('400'),
+            response=json.dumps(str(e)),
             status=400,
             mimetype='application/json'
         )
@@ -232,13 +232,10 @@ def expenditure_breakdown():
         else:
             total_spent = total_spent['1']
 
-        sql_most_spent_category = "SELECT category_name from category where category_id = (SELECT MAX(e.category_id) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id  where u.user_id = %s and e.expense_type = 'debit')" % user_id
-        stmt = ibm_db.exec_immediate(conn, sql_most_spent_category)
-        most_spent_category= ibm_db.fetch_assoc(stmt)
+        most_spent_category= get_most_spent_on(user_id)
         if not most_spent_category:
             most_spent_category = 'Nil'
-        else:
-            most_spent_category = most_spent_category['CATEGORY_NAME']
+
         print(most_spent_category)
         result={'week':week_spent,
                 'today':today_spent,
@@ -336,6 +333,69 @@ def update_expense(expense_id):
         )
         return response
 
+@app.route('/profile', methods = ['GET'])
+def profile():
+    user_id = request.headers['user_id']
+    try:
+        sql_get_profile = "SELECT * from users where user_id = %s"%user_id
+        stmt = ibm_db.exec_immediate(conn, sql_get_profile)
+        profile={}
+        result = ibm_db.fetch_assoc(stmt)
+        res =  {k.lower(): v for k, v in result.items()}
+        res.pop('password')
+        response = app.response_class(
+            response=json.dumps(res),
+            status=200,
+            mimetype='application/json'
+            )
+        return response
+    except Exception as e:
+        response = app.response_class(
+            response=json.dumps(str(e)),
+            status=400,
+            mimetype='application/json'
+            )
+        return response
+
+@app.route('/chart', methods = ['GET'])
+def chart():
+    user_id =request.headers['user_id']
+    try:
+        month_start , month_end = get_month_start_and_end()
+        categories_map = {1:'Food', 2:'Automobiles', 3:'Entertainment',4:'Clothing',5:'Healthcare',6:'Others'}
+        sql_cat1 = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id RIGHT JOIN category c ON e.category_id = c.category_id  where u.user_id = %s and e.category_id = 1 and e.date between '%s' And '%s'" % (user_id,month_start,month_end)
+        sql_cat2 = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id where u.user_id = %s and e.expense_type = 'debit' and e.category_id = 2 and e.date between '%s' And '%s'" % (user_id,month_start,month_end)
+        sql_cat3 = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id where u.user_id = %s and e.expense_type = 'debit' and e.category_id = 3 and e.date between '%s' And '%s'" % (user_id,month_start,month_end)
+        sql_cat4 = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id where u.user_id = %s and e.expense_type = 'debit' and e.category_id = 4 and e.date between '%s' And '%s'" % (user_id,month_start,month_end)
+        sql_cat5 = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id where u.user_id = %s and e.expense_type = 'debit' and e.category_id = 5 and e.date between '%s' And '%s'" % (user_id,month_start,month_end)
+        sql_cat6 = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id where u.user_id = %s and e.expense_type = 'debit' and e.category_id = 6 and e.date between '%s' And '%s'" % (user_id,month_start,month_end)
+        queries = [sql_cat1,sql_cat2,sql_cat3,sql_cat4,sql_cat5,sql_cat6]
+
+        chart_data = {}
+        for index in range(0,6):
+            stmt = ibm_db.exec_immediate(conn, queries[index])
+            result = ibm_db.fetch_assoc(stmt)
+            if result['1']:
+                print(result)
+                chart_data[categories_map[index+1]] = result['1']
+            else:
+                chart_data[categories_map[index+1]] = 0
+        response = app.response_class(
+                response=json.dumps(chart_data),
+                status=200,
+                mimetype='application/json'
+                )
+        return response
+    except Exception as e:
+        response = app.response_class(
+            response=json.dumps(str(e)),
+            status=400,
+            mimetype='application/json'
+            )
+        return response
+    
+
+
 def get_week_start_and_end():
     day = str(date.today().strftime('%d/%b/%Y'))
     dt = datetime.strptime(day, '%d/%b/%Y')
@@ -365,6 +425,38 @@ def get_year_start_and_end():
     year_start = datetime(currentYear,1,1)
     year_end = datetime(currentYear,12,31)
     return year_start, year_end
+
+def get_most_spent_on(user_id):
+    try:
+        max_category = None
+        max_id = 1
+        max_amount = 0
+
+        week_start, week_end = get_week_start_and_end()
+        categories_map = {1:'Food', 2:'Automobiles', 3:'Entertainment',4:'Clothing',5:'Healthcare',6:'Others'}
+        sql_cat1 = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id RIGHT JOIN category c ON e.category_id = c.category_id  where u.user_id = %s and e.category_id = 1 and e.date between '%s' And '%s'" % (user_id,week_start,week_end)
+        sql_cat2 = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id where u.user_id = %s and e.expense_type = 'debit' and e.category_id = 2 and e.date between '%s' And '%s'" % (user_id,week_start,week_end)
+        sql_cat3 = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id where u.user_id = %s and e.expense_type = 'debit' and e.category_id = 3 and e.date between '%s' And '%s'" % (user_id,week_start,week_end)
+        sql_cat4 = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id where u.user_id = %s and e.expense_type = 'debit' and e.category_id = 4 and e.date between '%s' And '%s'" % (user_id,week_start,week_end)
+        sql_cat5 = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id where u.user_id = %s and e.expense_type = 'debit' and e.category_id = 5 and e.date between '%s' And '%s'" % (user_id,week_start,week_end)
+        sql_cat6 = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id where u.user_id = %s and e.expense_type = 'debit' and e.category_id = 6 and e.date between '%s' And '%s'" % (user_id,week_start,week_end)
+        queries = [sql_cat1,sql_cat2,sql_cat3,sql_cat4,sql_cat5,sql_cat6]
+        for index in range(0,6):
+            print("index ",index)
+            stmt = ibm_db.exec_immediate(conn, queries[index])
+            result = ibm_db.fetch_assoc(stmt)
+            if result['1']:
+                print(result)
+                if result['1'] > max_amount:
+                    max_category = categories_map[index+1]
+                    max_id=index
+                    max_amount= result['1']
+        print("max category is ",max_category)
+        print("max amount is ",max_amount)
+        return max_category
+    except Exception as e:
+        print(e)
+
 
 if __name__ == '__main__':
     app.run(debug = True)
