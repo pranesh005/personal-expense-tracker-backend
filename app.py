@@ -6,9 +6,16 @@ import uuid
 import datetime
 from datetime import datetime, timedelta, date
 import calendar
+import os
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
+
 
 app = Flask(__name__)
 cors = CORS(app)
+
+API = "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"
+
 try:
     print("Connecting")
     conn=ibm_db.connect('DATABASE=bludb;HOSTNAME=6667d8e9-9d4d-4ccb-ba32-21da3bb5aafc.c1ogj3sd0tgtu0lqde00.databases.appdomain.cloud;PORT=30376;SECURITY=SSL;SSLServerCertificate=DigiCertGlobalRootCA.crt;UID=ncv90043;PWD=l6SXXm78Bc5lPuP0','','')
@@ -108,6 +115,7 @@ def add_expense():
         stmt = ibm_db.exec_immediate(conn, "SELECT expense_id from FINAL TABLE (INSERT INTO expense values ('%s','%s','%s','%s','%s','%s'))" % (int(id),date,amount,category_id,description,expense_type))
         expense_id = ibm_db.fetch_assoc(stmt)['EXPENSE_ID']
         ibm_db.exec_immediate(conn, "INSERT INTO user_expense VALUES ('%s','%s')" % (user_id,expense_id))
+        checkBudgetLimitExceeded(user_id)
         response = app.response_class(
             response=json.dumps({'message':'expense added successfully'}),
             status=200,
@@ -364,11 +372,11 @@ def chart():
         month_start , month_end = get_month_start_and_end()
         categories_map = {1:'Food', 2:'Automobiles', 3:'Entertainment',4:'Clothing',5:'Healthcare',6:'Others'}
         sql_cat1 = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id RIGHT JOIN category c ON e.category_id = c.category_id  where u.user_id = %s and e.category_id = 1 and e.date between '%s' And '%s'" % (user_id,month_start,month_end)
-        sql_cat2 = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id where u.user_id = %s and e.expense_type = 'debit' and e.category_id = 2 and e.date between '%s' And '%s'" % (user_id,month_start,month_end)
-        sql_cat3 = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id where u.user_id = %s and e.expense_type = 'debit' and e.category_id = 3 and e.date between '%s' And '%s'" % (user_id,month_start,month_end)
-        sql_cat4 = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id where u.user_id = %s and e.expense_type = 'debit' and e.category_id = 4 and e.date between '%s' And '%s'" % (user_id,month_start,month_end)
-        sql_cat5 = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id where u.user_id = %s and e.expense_type = 'debit' and e.category_id = 5 and e.date between '%s' And '%s'" % (user_id,month_start,month_end)
-        sql_cat6 = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id where u.user_id = %s and e.expense_type = 'debit' and e.category_id = 6 and e.date between '%s' And '%s'" % (user_id,month_start,month_end)
+        sql_cat2 = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id RIGHT JOIN category c ON e.category_id = c.category_id  where u.user_id = %s and e.category_id = 2 and e.date between '%s' And '%s'" % (user_id,month_start,month_end)
+        sql_cat3 = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id RIGHT JOIN category c ON e.category_id = c.category_id  where u.user_id = %s and e.category_id = 3 and e.date between '%s' And '%s'" % (user_id,month_start,month_end)
+        sql_cat4 = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id RIGHT JOIN category c ON e.category_id = c.category_id  where u.user_id = %s and e.category_id = 4 and e.date between '%s' And '%s'" % (user_id,month_start,month_end)
+        sql_cat5 = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id RIGHT JOIN category c ON e.category_id = c.category_id  where u.user_id = %s and e.category_id = 5 and e.date between '%s' And '%s'" % (user_id,month_start,month_end)
+        sql_cat6 = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id RIGHT JOIN category c ON e.category_id = c.category_id  where u.user_id = %s and e.category_id = 6 and e.date between '%s' And '%s'" % (user_id,month_start,month_end)
         queries = [sql_cat1,sql_cat2,sql_cat3,sql_cat4,sql_cat5,sql_cat6]
 
         chart_data = {}
@@ -457,6 +465,41 @@ def get_most_spent_on(user_id):
     except Exception as e:
         print(e)
 
+def checkBudgetLimitExceeded(user_id):
+    month_start, month_end = get_month_start_and_end()
+    sql_month_spent = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id  where u.user_id = %s and e.expense_type = 'debit' and e.date between '%s' And '%s'" % (user_id,month_start,month_end)
+    stmt = ibm_db.exec_immediate(conn, sql_month_spent)
+    month_spent = ibm_db.fetch_assoc(stmt)
+    if not month_spent:
+        month_spent = 0
+    else:
+        month_spent = month_spent['1']
+    
+    sql_get_profile = "SELECT * from users where user_id = %s"%user_id
+    stmt = ibm_db.exec_immediate(conn, sql_get_profile)
+    result = ibm_db.fetch_assoc(stmt)
+    limit = result['MONTHLY_LIMIT']
+
+    if month_spent > limit:
+        sendSendGridMail(result['EMAIL'].lower())
+
+
+
+def sendSendGridMail(to_email):
+    print("to email is ",to_email)
+    message = Mail(
+    from_email='praneshgowtham005@gmail.com',
+    to_emails=to_email,
+    subject='!!!! You have exceeded your budget',
+    html_content='<strong>and easy to do anywhere, even with Python</strong>')
+    try:
+        sg = SendGridAPIClient(API)
+        response = sg.send(message)
+        print(response.status_code)
+        print(response.body)
+        print(response.headers)
+    except Exception as e:
+        print("Mail exception is ",e)
 
 if __name__ == '__main__':
     app.run(debug = True)
