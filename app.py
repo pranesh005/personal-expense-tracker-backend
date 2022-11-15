@@ -14,7 +14,6 @@ import calendar
 app = Flask(__name__)
 cors = CORS(app)
 
-# API = "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"
 
 try:
     print("Connecting")
