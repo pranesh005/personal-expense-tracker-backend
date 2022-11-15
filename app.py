@@ -115,7 +115,7 @@ def add_expense():
         stmt = ibm_db.exec_immediate(conn, "SELECT expense_id from FINAL TABLE (INSERT INTO expense values ('%s','%s','%s','%s','%s','%s'))" % (int(id),date,amount,category_id,description,expense_type))
         expense_id = ibm_db.fetch_assoc(stmt)['EXPENSE_ID']
         ibm_db.exec_immediate(conn, "INSERT INTO user_expense VALUES ('%s','%s')" % (user_id,expense_id))
-        checkBudgetLimitExceeded(user_id)
+        # checkBudgetLimitExceeded(user_id)
         response = app.response_class(
             response=json.dumps({'message':'expense added successfully'}),
             status=200,
@@ -465,41 +465,41 @@ def get_most_spent_on(user_id):
     except Exception as e:
         print(e)
 
-def checkBudgetLimitExceeded(user_id):
-    month_start, month_end = get_month_start_and_end()
-    sql_month_spent = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id  where u.user_id = %s and e.expense_type = 'debit' and e.date between '%s' And '%s'" % (user_id,month_start,month_end)
-    stmt = ibm_db.exec_immediate(conn, sql_month_spent)
-    month_spent = ibm_db.fetch_assoc(stmt)
-    if not month_spent:
-        month_spent = 0
-    else:
-        month_spent = month_spent['1']
+# def checkBudgetLimitExceeded(user_id):
+#     month_start, month_end = get_month_start_and_end()
+#     sql_month_spent = "SELECT SUM(e.amount) FROM expense e INNER JOIN user_expense u ON e.expense_id=u.expense_id FULL JOIN category c ON e.category_id = c.category_id  where u.user_id = %s and e.expense_type = 'debit' and e.date between '%s' And '%s'" % (user_id,month_start,month_end)
+#     stmt = ibm_db.exec_immediate(conn, sql_month_spent)
+#     month_spent = ibm_db.fetch_assoc(stmt)
+#     if not month_spent:
+#         month_spent = 0
+#     else:
+#         month_spent = month_spent['1']
     
-    sql_get_profile = "SELECT * from users where user_id = %s"%user_id
-    stmt = ibm_db.exec_immediate(conn, sql_get_profile)
-    result = ibm_db.fetch_assoc(stmt)
-    limit = result['MONTHLY_LIMIT']
+#     sql_get_profile = "SELECT * from users where user_id = %s"%user_id
+#     stmt = ibm_db.exec_immediate(conn, sql_get_profile)
+#     result = ibm_db.fetch_assoc(stmt)
+#     limit = result['MONTHLY_LIMIT']
 
-    if month_spent > limit:
-        sendSendGridMail(result['EMAIL'].lower())
+#     if month_spent > limit:
+#         sendSendGridMail(result['EMAIL'].lower())
 
 
 
-def sendSendGridMail(to_email):
-    print("to email is ",to_email)
-    message = Mail(
-    from_email='praneshgowtham005@gmail.com',
-    to_emails=to_email,
-    subject='!!!! You have exceeded your budget',
-    html_content='<strong>and easy to do anywhere, even with Python</strong>')
-    try:
-        sg = SendGridAPIClient(API)
-        response = sg.send(message)
-        print(response.status_code)
-        print(response.body)
-        print(response.headers)
-    except Exception as e:
-        print("Mail exception is ",e)
+# def sendSendGridMail(to_email):
+#     print("to email is ",to_email)
+#     message = Mail(
+#     from_email='praneshgowtham005@gmail.com',
+#     to_emails=to_email,
+#     subject='!!!! You have exceeded your budget',
+#     html_content='<strong>and easy to do anywhere, even with Python</strong>')
+#     try:
+#         sg = SendGridAPIClient(API)
+#         response = sg.send(message)
+#         print(response.status_code)
+#         print(response.body)
+#         print(response.headers)
+#     except Exception as e:
+#         print("Mail exception is ",e)
 
 if __name__ == '__main__':
     app.run(debug = True)
