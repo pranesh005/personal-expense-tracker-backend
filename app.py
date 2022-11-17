@@ -480,17 +480,17 @@ def checkBudgetLimitExceeded(user_id):
     limit = result['MONTHLY_LIMIT']
 
     if month_spent > limit:
-        sendSendGridMail(result['EMAIL'].lower())
+        sendSendGridMail(result['EMAIL'].lower(),limit)
 
 
 
-def sendSendGridMail(to_email):
+def sendSendGridMail(to_email,limit):
     print("to email is ",to_email)
     message = Mail(
     from_email='19eucs107@skcet.ac.in',
     to_emails=to_email,
     subject='!!!! You have exceeded your budget',
-    html_content='<strong>and easy to do anywhere, even with Python</strong>')
+    html_content=f'<strong>You have exceeded your set monthly limit ₹{limit}</strong>')
     try:
         # print("api key is ",os.environ.get('SENDGRID_API_KEY'))
         sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
