@@ -7,13 +7,19 @@ import datetime
 from datetime import datetime, timedelta, date
 import calendar
 import os
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
+from flask_mail import Mail, Message
 
 
 app = Flask(__name__)
 cors = CORS(app)
 
+app.config['MAIL_SERVER']='smtp.gmail.com'
+app.config['MAIL_PORT'] = 465
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_USE_TLS'] = False
+app.config['MAIL_USE_SSL'] = True
+mail = Mail(app)
 
 try:
     print("Connecting")
@@ -483,23 +489,14 @@ def checkBudgetLimitExceeded(user_id):
         sendSendGridMail(result['EMAIL'].lower(),limit)
 
 
-
 def sendSendGridMail(to_email,limit):
-    print("to email is ",to_email)
-    message = Mail(
-    from_email='19eucs107@skcet.ac.in',
-    to_emails=to_email,
-    subject='!!!! You have exceeded your budget',
-    html_content=f'<strong>You have exceeded your set monthly limit ₹{limit}</strong>')
-    try:
-        # print("api key is ",os.environ.get('SENDGRID_API_KEY'))
-        sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
-        response = sg.send(message)
-        print(response.status_code)
-        print(response.body)
-        print(response.headers)
-    except Exception as e:
-        print("Mail exception is ",e)
+    msg = Message(
+                f'!!! WARNING: Monthly limit exceeded',
+                sender ='teampetskcet@gmail.com',
+                recipients = [to_email]
+               )
+    msg.body = f'You have exceeded your set monthly limit ₹{limit}'
+    mail.send(msg)
 
 if __name__ == '__main__':
     app.run(debug = True)
